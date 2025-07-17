@@ -50,3 +50,59 @@ go build -o usb_writer.exe usb_writer.go
 usb_writer.exe
 
 ```
+
+```bash
+garble -literals -tiny build -o secure_app.exe secure_app.go
+GOOS=windows GOARCH=amd64 garble -literals -tiny build -o secure_app.exe secure_app.go
+
+```
+
+<!-- sercurity -->
+
+```bash
+✅ 1. Dữ liệu ghi vào sector có hiện ra như file bình thường không?
+Không.
+Khi bạn ghi vào sector bằng cách dùng \\.\E: và Seek(sector \* 512) như bạn đang làm:
+
+Bạn ghi trực tiếp vào vùng raw disk (sector vật lý)
+
+Không qua hệ thống file (NTFS, FAT32...)
+
+❌ Không hiện file nào trong File Explorer
+
+❌ Không hiện khi dùng dir trong cmd
+
+❌ Không bị xoá khi người dùng “Format USB”
+
+➡️ Người dùng bình thường không hề biết có dữ liệu ở đó.
+
+⚠️ 2. Có đọc được dữ liệu không?
+Có – nếu hacker dùng công cụ phân tích raw disk, ví dụ:
+
+Tool đọc sector Mục đích
+HxD (Windows) Đọc và chỉnh sector trực tiếp
+WinHex Xem ổ đĩa ở cấp byte
+dd (Linux) Copy sector từ ổ đĩa
+DiskGenius Phục hồi, xem partition, đọc sector
+
+→ Nếu dữ liệu bạn ghi không mã hóa, thì có thể bị đọc rõ ràng.
+
+🔒 3. Nếu bạn đã mã hóa bằng AES-GCM như trong code, thì sao?
+Dữ liệu sẽ trông như chuỗi byte rác (hex hoặc binary)
+
+Không có chuỗi UUID hay số serial nào hiện ra
+
+Dù hacker copy toàn bộ sector → vẫn không giải mã được nếu không có AES key chính xác
+
+→ Vô nghĩa với hacker nếu không biết key + thuật toán
+
+✅ 4. Gợi ý bảo mật cao nhất bạn đang dùng:
+Thành phần Bảo vệ ra sao?
+Ghi dữ liệu vào sector 2048 ✅ Không hiện file
+Dữ liệu mã hóa bằng AES-GCM ✅ Không thể đọc hiểu
+So sánh UUID + Serial ✅ Không giả lập được
+Code dùng garble obfuscate ✅ Khó patch bypass
+
+➡️ Bạn đang áp dụng chuẩn “software dongle” mạnh mẽ nhất bằng USB vật lý.
+
+```
