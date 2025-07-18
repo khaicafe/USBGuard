@@ -1,4 +1,3 @@
-// secure_app.go
 package main
 
 import (
@@ -10,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 	"usbguard/controller"
 )
 
@@ -117,18 +117,18 @@ func slowVerify(secret string) {
 	}()
 }
 
-func extractNSudoIfNotExist() {
-	// go:embed assets/NSudoLC.exe
-	var nsudoBytes []byte
-	targetPath := "NSudoLC.exe"
-	if _, err := os.Stat(targetPath); os.IsNotExist(err) {
-		err := os.WriteFile(targetPath, nsudoBytes, 0755)
-		if err != nil {
-			fmt.Println("❌ Failed to write NSudoLC.exe:", err)
-		} else {
-			fmt.Println("✅ Extracted NSudoLC.exe")
+// 🔐 Tăng cường bảo mật runtime mỗi 15 giây
+func startSecurityMonitor() {
+	go func() {
+		for {
+
+			if controller.IsDebugged() {
+				fmt.Println("🛑 Phát hiện hack (runtime) – thoát.")
+				os.Exit(1)
+			}
+			time.Sleep(15 * time.Second)
 		}
-	}
+	}()
 }
 
 func printHelp() {
@@ -140,61 +140,98 @@ func printHelp() {
 }
 
 func main() {
+
+	fmt.Println(` 
+                                                                                                                                       
+
+888    d8P  888               d8b                    .d888          
+888   d8P   888               Y8P                   d88P"           
+888  d8P    888                                     888             
+888d88K     88888b.   8888b.  888  .d8888b  8888b.  888888  .d88b.  
+8888888b    888 "88b     "88b 888 d88P"        "88b 888    d8P  Y8b 
+888  Y88b   888  888 .d888888 888 888      .d888888 888    88888888 
+888   Y88b  888  888 888  888 888 Y88b.    888  888 888    Y8b.     
+888    Y88b 888  888 "Y888888 888  "Y8888P "Y888888 888     "Y8888  
+                                                                    
+                                                                    
+                                                                                      
+`)
+
+	startSecurityMonitor() // 🔐 Kiểm tra nền nâng cao mỗi 15s
+
 	if len(os.Args) < 2 {
 		printHelp()
 		return
 	}
-	// expectedUUID, err := getUUID()
-	// if err != nil {
-	// 	fmt.Println("❌ Không thể lấy UUID:", err)
-	// 	return
-	// }
-	// serial, err := getVolumeSerial()
-	// if err != nil {
-	// 	fmt.Println("❌ Không thể lấy serial:", err)
-	// 	return
-	// }
 
-	// key := expectedUUID + ":" + serial
+	if devBuild {
+		// dev
+		// code logic app
 
-	// // Gọi các anti patch rải rác
-	// checkAssets(key)
-	// verifyStartup(key)
+		switch os.Args[1] {
+		case "boot":
+			controller.RunApplication()
+		case "fastApp":
+			controller.RunApps()
+		case "help", "-h", "--help":
+			printHelp()
+		default:
+			controller.HandleOther(os.Args[1:])
+		}
+	} else {
+		// release
+		// check lisen
+		expectedUUID, err := getUUID()
+		if err != nil {
+			fmt.Println("❌ Không thể lấy UUID:", err)
+			return
+		}
+		serial, err := getVolumeSerial()
+		if err != nil {
+			fmt.Println("❌ Không thể lấy serial:", err)
+			return
+		}
 
-	// rawData, err := readFromSector()
-	// if err != nil {
-	// 	fmt.Println("❌ Không thể đọc sector:", err)
-	// 	return
-	// }
+		key := expectedUUID + ":" + serial
 
-	// decrypted, err := decryptAESGCM(rawData, []byte(aesKey))
-	// if err != nil {
-	// 	fmt.Println("❌ Không giải mã được:", err)
-	// 	return
-	// }
+		// Gọi các anti patch rải rác
+		checkAssets(key)
+		verifyStartup(key)
 
-	// if decrypted != key {
-	// 	fmt.Println("🚫 Không đúng USB – từ chối chạy.")
-	// 	return
-	// }
+		rawData, err := readFromSector()
+		if err != nil {
+			fmt.Println("❌ Không thể đọc sector:", err)
+			return
+		}
 
-	// // ✅ Bắt đầu app thật
-	// fmt.Println("✅ USB hợp lệ. Chạy phần mềm...")
+		decrypted, err := decryptAESGCM(rawData, []byte(aesKey))
+		if err != nil {
+			fmt.Println("❌ Không giải mã được:", err)
+			return
+		}
 
-	// // Chạy kiểm tra nền ẩn → anti patch runtime
-	// slowVerify(key)
+		if decrypted != key {
+			fmt.Println("🚫 Không đúng USB – từ chối chạy.")
+			return
+		}
 
-	// code logic app
+		// ✅ Bắt đầu app thật
+		fmt.Println("✅ USB hợp lệ. Chạy phần mềm...")
 
-	switch os.Args[1] {
-	case "boot":
-		controller.RunApplication()
-	case "fastApp":
-		controller.RunApps()
-	case "help", "-h", "--help":
-		printHelp()
-	default:
-		controller.HandleOther(os.Args[1:])
+		// Chạy kiểm tra nền ẩn → anti patch runtime
+		slowVerify(key)
+		// code logic app
+
+		switch os.Args[1] {
+		case "boot":
+			controller.RunApplication()
+		case "fastApp":
+			controller.RunApps()
+		case "help", "-h", "--help":
+			printHelp()
+		default:
+			controller.HandleOther(os.Args[1:])
+		}
 	}
 
 }
